@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "mms-pz2"
+version = "0.1.0"
+description = ""
+authors = ["RuslanUC <dev_ruslan_uc@protonmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11,<3.14"
+pyside6 = "^6.10.1"
+soundfile = "^0.13.1"
+pydub = "^0.25.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

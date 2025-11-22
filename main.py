@@ -17,7 +17,8 @@ class AudioEditor(QWidget):
 
         self.audio: AudioSegment | None = None
         self.result_audio: AudioSegment | None = None
-        self.file_path = None
+        self.file_path: str | None = None
+        self.filter_str: str | None = None
 
         layout = QVBoxLayout()
 
@@ -60,6 +61,54 @@ class AudioEditor(QWidget):
         self.vol_slider.valueChanged.connect(self.update_volume)
         layout.addWidget(self.vol_slider)
 
+        layout.addWidget(QLabel("Compressor"))
+
+        self.threshold_label = QLabel("Threshold (dB)")
+        self.threshold_slider = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_slider.valueChanged.connect(self.on_threshold_update)
+        self.threshold_slider.setMinimum(-60)
+        self.threshold_slider.setMaximum(0)
+        self.threshold_slider.setValue(-20)
+        layout.addWidget(self.threshold_label)
+        layout.addWidget(self.threshold_slider)
+
+        self.ratio_label = QLabel("Ratio")
+        self.ratio_slider = QSlider(Qt.Orientation.Horizontal)
+        self.ratio_slider.valueChanged.connect(self.on_ratio_update)
+        self.ratio_slider.setMinimum(1)
+        self.ratio_slider.setMaximum(20)
+        self.ratio_slider.setValue(4)
+        layout.addWidget(self.ratio_label)
+        layout.addWidget(self.ratio_slider)
+
+        self.attack_label = QLabel("Attack (ms)")
+        self.attack_slider = QSlider(Qt.Orientation.Horizontal)
+        self.attack_slider.valueChanged.connect(self.on_attack_update)
+        self.attack_slider.setMinimum(1)
+        self.attack_slider.setMaximum(200)
+        self.attack_slider.setValue(20)
+        layout.addWidget(self.attack_label)
+        layout.addWidget(self.attack_slider)
+
+        self.release_label = QLabel("Release (ms)")
+        self.release_slider = QSlider(Qt.Orientation.Horizontal)
+        self.release_slider.valueChanged.connect(self.on_release_update)
+        self.release_slider.setMinimum(10)
+        self.release_slider.setMaximum(1000)
+        self.release_slider.setValue(200)
+        layout.addWidget(self.release_label)
+        layout.addWidget(self.release_slider)
+
+        btn_compress = QPushButton("Apply Compression")
+        btn_compress.clicked.connect(self.apply_compression)
+        layout.addWidget(btn_compress)
+
+        btn_compress_reset = QPushButton("Reset Compression")
+        btn_compress_reset.clicked.connect(self.reset_compression)
+        layout.addWidget(btn_compress_reset)
+
+        layout.addWidget(QLabel("Export"))
+
         btn_export = QPushButton("Export processed audio")
         btn_export.clicked.connect(self.export_audio)
         layout.addWidget(btn_export)
@@ -73,7 +122,7 @@ class AudioEditor(QWidget):
     def open_file(self) -> None:
         self.status_bar.showMessage("Opening file")
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select audio", "", "Audio Files (*.wav *.flac *.mp3)"
+            self, "Select audio", "", "Audio Files (*.ogg *.flac *.mp3)"
         )
 
         if not file_path:
@@ -124,6 +173,43 @@ class AudioEditor(QWidget):
         self.result_audio = self.audio + db
         self.status_bar.showMessage("Applied volume")
 
+    def on_threshold_update(self, value: int) -> None:
+        self.threshold_label.setText(f"Threshold (dB): {value}")
+
+    def on_ratio_update(self, value: int) -> None:
+        self.ratio_label.setText(f"Ratio: {value}")
+
+    def on_attack_update(self, value: int) -> None:
+        self.attack_label.setText(f"Attack (ms): {value}")
+
+    def on_release_update(self, value: int) -> None:
+        self.release_label.setText(f"Release (ms): {value}")
+
+    def apply_compression(self) -> None:
+        if not self.audio:
+            self.status_bar.showMessage("No audio")
+            return
+
+        threshold = self.threshold_slider.value()
+        ratio = self.ratio_slider.value()
+        attack = self.attack_slider.value() / 1000.0
+        release = self.release_slider.value() / 1000.0
+
+        self.filter_str = (
+            f"acompressor="
+            f"threshold={threshold}dB:"
+            f"ratio={ratio}:"
+            f"attack={attack}:"
+            f"release={release}"
+        )
+
+    def reset_compression(self) -> None:
+        self.filter_str = None
+        self.threshold_slider.setValue(-20)
+        self.ratio_slider.setValue(4)
+        self.attack_slider.setValue(20)
+        self.release_slider.setValue(200)
+
     def export_audio(self) -> None:
         if not self.result_audio:
             self.status_bar.showMessage("No audio")
@@ -131,13 +217,17 @@ class AudioEditor(QWidget):
 
         self.status_bar.showMessage("Saving file...")
         save_path, _ = QFileDialog.getSaveFileName(
-            self, "Export audio", "output.wav", "WAV (*.wav);;FLAC (*.flac)"
+            self, "Export audio", "output.ogg", "Vorbis (*.ogg);;FLAC (*.flac)"
         )
         if not save_path:
             self.status_bar.showMessage("Saving canceled")
             return
 
-        self.result_audio.export(save_path, format=save_path.split('.')[-1])
+        self.result_audio.export(
+            out_f=save_path,
+            format=save_path.split('.')[-1],
+            parameters=["-af", self.filter_str] if self.filter_str else None,
+        )
         self.status_bar.showMessage(f"Saved file to {save_path}")
 
 

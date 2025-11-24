@@ -1,11 +1,90 @@
 import math
+import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, QSlider, QGroupBox, \
-    QRadioButton, QStatusBar
+    QRadioButton, QStatusBar, QListWidget, QHBoxLayout, QComboBox, QTabWidget
 from pydub import AudioSegment
+
+
+class BatchConverterWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.files = []
+
+        layout = QVBoxLayout()
+
+        layout.addWidget(QLabel("<b>Batch Audio Converter (OGG - FLAC)</b>"))
+
+        self.file_list = QListWidget()
+        layout.addWidget(self.file_list)
+
+        btn_add = QPushButton("Add OGG/FLAC files…")
+        btn_add.clicked.connect(self.add_files)
+        layout.addWidget(btn_add)
+
+        btn_clear = QPushButton("Clear list")
+        btn_clear.clicked.connect(lambda: (self.file_list.clear(), self.files.clear()))
+        layout.addWidget(btn_clear)
+
+        format_layout = QHBoxLayout()
+        format_layout.addWidget(QLabel("Convert to:"))
+
+        self.format_box = QComboBox()
+        self.format_box.addItems(["ogg", "flac"])
+        format_layout.addWidget(self.format_box)
+
+        layout.addLayout(format_layout)
+
+        btn_convert = QPushButton("Convert All")
+        btn_convert.clicked.connect(self.convert_all)
+        layout.addWidget(btn_convert)
+
+        self.status_label = QLabel("")
+        layout.addWidget(self.status_label)
+
+        self.setLayout(layout)
+
+    def add_files(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Select OGG/FLAC files", "", "Audio Files (*.ogg *.flac)")
+        if not files:
+            return
+
+        for f in files:
+            if f not in self.files:
+                self.files.append(f)
+                self.file_list.addItem(f)
+
+    def convert_all(self):
+        if not self.files:
+            self.status_label.setText("No files to convert.")
+            return
+
+        out_format = self.format_box.currentText()
+
+        out_dir = QFileDialog.getExistingDirectory(self, "Select output folder", "")
+        if not out_dir:
+            return
+
+        count = 0
+
+        for file_path in self.files:
+            try:
+                audio = AudioSegment.from_file(file_path)
+                base = os.path.splitext(os.path.basename(file_path))[0]
+                out_path = os.path.join(out_dir, base + "." + out_format)
+
+                audio.export(out_path, format=out_format)
+
+                count += 1
+
+            except Exception as e:
+                print("Error converting:", file_path, "\n", e)
+
+        self.status_label.setText(f"Converted {count} files to {out_format}.")
 
 
 class AudioEditor(QWidget):
@@ -231,8 +310,14 @@ class AudioEditor(QWidget):
         self.status_bar.showMessage(f"Saved file to {save_path}")
 
 
-if __name__ == "__main__":
+def main() -> None:
     app = QApplication(sys.argv)
-    window = AudioEditor()
-    window.show()
+    tabs = QTabWidget()
+    tabs.addTab(AudioEditor(), "Editor")
+    tabs.addTab(BatchConverterWidget(), "Converter")
+    tabs.show()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

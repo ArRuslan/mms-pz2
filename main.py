@@ -178,6 +178,16 @@ class AudioEditor(QWidget):
         layout.addWidget(self.release_label)
         layout.addWidget(self.release_slider)
 
+        self.bitrate_label = QLabel("Bitrate (kpbs)")
+        self.bitrate_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bitrate_slider.valueChanged.connect(self.on_bitrate_update)
+        self.bitrate_slider.setMinimum(32)
+        self.bitrate_slider.setMaximum(256)
+        self.bitrate_slider.setValue(192)
+        self.bitrate_slider.setSingleStep(32)
+        layout.addWidget(self.bitrate_label)
+        layout.addWidget(self.bitrate_slider)
+
         btn_compress = QPushButton("Apply Compression")
         btn_compress.clicked.connect(self.apply_compression)
         layout.addWidget(btn_compress)
@@ -264,6 +274,13 @@ class AudioEditor(QWidget):
     def on_release_update(self, value: int) -> None:
         self.release_label.setText(f"Release (ms): {value}")
 
+    def on_bitrate_update(self, value: int) -> None:
+        if value % 32 != 0:
+            value = (value // 32) * 32
+            self.bitrate_slider.setValue(value)
+        else:
+            self.bitrate_label.setText(f"Bitrate (kpbs): {value}")
+
     def apply_compression(self) -> None:
         if not self.audio:
             self.status_bar.showMessage("No audio")
@@ -302,10 +319,14 @@ class AudioEditor(QWidget):
             self.status_bar.showMessage("Saving canceled")
             return
 
+        params = ["-b:a", f"{self.bitrate_slider.value()}k"]
+        if self.filter_str:
+            params.extend(("-af", self.filter_str))
+
         self.result_audio.export(
             out_f=save_path,
             format=save_path.split('.')[-1],
-            parameters=["-af", self.filter_str] if self.filter_str else None,
+            parameters=params,
         )
         self.status_bar.showMessage(f"Saved file to {save_path}")
 
